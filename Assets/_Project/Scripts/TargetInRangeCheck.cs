@@ -2,9 +2,9 @@ using UnityEngine;
 
 public class TargetInRangeCheck : Node
 {
-    private Transform dog;
-    private Transform target;
-    private float range;
+    private readonly Transform dog;
+    private readonly Transform target;
+    private readonly float range;
 
     public TargetInRangeCheck(Transform dog, Transform target, float range)
     {

@@ -1,6 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.Serialization;
+using BlackboardSystem;
 
 public class PlayerController : MonoBehaviour {
     [Header("Movement")]
@@ -10,26 +10,42 @@ public class PlayerController : MonoBehaviour {
     [Header("Interact")]
     public Transform MainCameraTransform;
     public Transform ObjectGrabPoint;
+    private GrabbableObject grabbableObject;
+    public LayerMask PickUpLayer;
 
     [Header("Input")]
     public PlayerInput PlayerInput;
 
     [Header("Settings")]
     public float LookSensitivity = 2;
+    
+    [Header("Blackboard")]
+    [SerializeField] BlackboardData blackboardData;
+    Blackboard blackboard;
+    BlackboardKey BallInHandKey;
+    BlackboardKey BallThrownKey;
 
     private InputAction moveInputAction;
     private InputAction jumpInputAction;
     private InputAction lookInputAction;
     private InputAction grabInputAction;
     private InputAction dropInputAction;
+    private InputAction throwInputAction;
 
-    private GrabbableObject grabbableObject;
-    private float pickUpDistance = 2f;
+    private GrabbableObject objectGrabbable;
+    private PlayerInteraction playerInteraction;
+    
+    private const float pickUpDistance = 2f;
 
     private void Awake() {
         MapInputActions();
+        blackboard = BlackboardManager.SharedBlackboard;
+        blackboardData.SetValuesOnBlackboard(blackboard);
+        BallInHandKey = blackboard.GetOrRegisterKey("BallInHand");
+        BallThrownKey = blackboard.GetOrRegisterKey("BallThrown");
+        // blackboardData.SetValuesOnBlackboard(blackboard);
+        // BallThrownKey = blackboard.GetOrRegisterKey("BallThrown");
     }
-
 
     /// <summary>
     /// Sets cursor lock mode on left click to locked and on escape to none.
@@ -48,7 +64,11 @@ public class PlayerController : MonoBehaviour {
             var rotation = GetRotationFromInput();
             RigidbodyMovement.RotateHorizontal(rotation.x * LookSensitivity);
         }
-
+        
+        if (Input.GetKeyDown(KeyCode.Q))
+        {
+            blackboard.Debug();
+        }
     }
 
     /// <summary>
@@ -82,11 +102,14 @@ public class PlayerController : MonoBehaviour {
 
         lookInputAction = PlayerInput.actions["Look"];
 
-        grabInputAction = PlayerInput.actions["Grab"];
+        grabInputAction = PlayerInput.actions["Interact"];
         grabInputAction.started += OnGrabInput;
 
         dropInputAction = PlayerInput.actions["Drop"];
         dropInputAction.started += OnDropInput;
+        
+        throwInputAction = PlayerInput.actions["Throw"];
+        throwInputAction.started += OnThrowInput;
     }
 
     private void OnJumpInput(InputAction.CallbackContext _context) {
@@ -118,6 +141,10 @@ public class PlayerController : MonoBehaviour {
                     if (raycastHit.transform.TryGetComponent(out GrabbableObject grabbableObject)) {
                         grabbableObject.Grab(ObjectGrabPoint);
                         this.grabbableObject = grabbableObject;
+                        blackboard.SetValue(BallInHandKey, true);
+                        blackboard.SetValue(BallThrownKey, false);
+                        blackboard.TryGetValue(BallInHandKey, out bool ballInHand);
+                        Debug.Log($"BallInHand: {ballInHand}");
                     }
                 }
             }
@@ -126,5 +153,22 @@ public class PlayerController : MonoBehaviour {
     private void OnDropInput(InputAction.CallbackContext _context) {
         grabbableObject.Drop();
         grabbableObject = null;
+        blackboard.SetValue(BallInHandKey, false);
+    }
+    
+    private void OnThrowInput(InputAction.CallbackContext context) {
+        if (context.phase == InputActionPhase.Started) {
+            if (blackboard.TryGetValue(BallInHandKey, out bool ballInHand) && ballInHand) {
+                grabbableObject.Throw(MainCameraTransform.forward);
+                grabbableObject = null;
+                blackboard.SetValue(BallInHandKey, false);
+                blackboard.SetValue(BallThrownKey, true);
+                blackboard.TryGetValue(BallThrownKey, out bool value);
+                Debug.Log($"BallThrown: {value}");
+            }
+            // else {
+            //     blackboard.SetValue(BallThrownKey, false);
+            // }
+        }
     }
 }

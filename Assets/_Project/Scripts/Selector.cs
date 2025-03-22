@@ -3,13 +3,6 @@ using UnityEngine;
 
 public class Selector : Node
 {
-    private List<Node> children = new();
-
-    public Selector(List<Node> nodes)
-    {
-        children = nodes;
-    }
-
     public override NodeState Run()
     {
         foreach (var child in children)

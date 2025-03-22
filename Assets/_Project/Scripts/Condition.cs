@@ -3,7 +3,7 @@ using UnityEngine;
 
 public class Condition : Node
 {
-   readonly Func<bool> condition;
+   private readonly Func<bool> condition;
 
    public Condition(Func<bool> condition) {
       this.condition = condition;

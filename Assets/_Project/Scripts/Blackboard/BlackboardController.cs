@@ -8,7 +8,7 @@ namespace BlackboardSystem {
 
         void Awake() {
             blackboardData.SetValuesOnBlackboard(blackboard);
-            blackboard.Debug();
+            // blackboard.Debug();
         }
         
         public Blackboard GetBlackboard() => blackboard;

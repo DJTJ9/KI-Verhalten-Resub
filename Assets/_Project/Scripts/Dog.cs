@@ -2,58 +2,95 @@ using System.Collections.Generic;
 using BlackboardSystem;
 using UnityEngine;
 using UnityEngine.AI;
-using UnityEngine.Serialization;
 
 public class Dog : MonoBehaviour
 {
     [Header("Dog Settings")] [SerializeField]
-    float DetectionRange = 5f;
+    float detectionRange = 5f;
 
-    [SerializeField] float Speed = 2f;
+    [SerializeField] private float speed = 2f;
+    [SerializeField] private float fastSpeed = 5f;
+    [SerializeField] private float dogDetectionRange = 7f;
 
-    [Header("Blackboard Settings")] [SerializeField]
-    Transform PlayerPos;
+    [Header("Transforms")] 
+    [SerializeField] private Transform playerPos;
+    [SerializeField] private List<Transform> bowls;
+    [SerializeField] private Transform objectGrabPoint;
+    [SerializeField] private GameObject ball;
 
-    [SerializeField] BlackboardData BlackboardData;
+    [Header("Other Dog")] 
+    [SerializeField] private Transform otherDogTransform;
+    [SerializeField] private NavMeshAgent otherDogAgent;
+
+    [Header("Blackboard Settings")] 
+    [SerializeField] private BlackboardData blackboardData;
 
     private NavMeshAgent agent;
-
-    private Blackboard blackboard = new();
+    private Animator animator;
+    private Blackboard blackboard;
 
     private BlackboardKey playerPosKey;
     private BlackboardKey dogCalledKey;
-    private BlackboardKey ballInHandKey;
     private BlackboardKey ballThrownKey;
-    private BlackboardKey foodBowlPosKey;
-    private BlackboardKey waterBowlPosKey;
+    private BlackboardKey invitedToPlayKey;
 
     private Node behaviourTree;
 
-    void Start() {
-        agent = GetComponent<NavMeshAgent>();
+    private AnimationStates currentState { get; set;}
+    public AnimationStates nextState { get; set;}
 
-        BlackboardData.SetValuesOnBlackboard(blackboard);
+    void Awake() {
+        agent = GetComponent<NavMeshAgent>();
+        animator = GetComponentInChildren<Animator>();
+
+        blackboard = BlackboardManager.SharedBlackboard;
+        blackboardData.SetValuesOnBlackboard(blackboard);
         SetBlackboardKeys();
 
+        nextState = AnimationStates.Walk;
+
+        behaviourTree = new Selector();
+
+        Node runToOwnerSequence = new Sequence();
         bool DogCalled() {
             if (blackboard.TryGetValue(dogCalledKey, out bool dogCalled)) {
                 if (!dogCalled) {
+                    runToOwnerSequence.Reset();
                     return false;
                 }
             }
 
             return true;
         }
+        runToOwnerSequence.Add(new Condition(DogCalled));
+        runToOwnerSequence.Add(new MoveToTarget(this, playerPos, agent, fastSpeed));
 
-        Node dogCalled = new Condition(DogCalled);
-        Node runToOwner = new MoveToTarget(transform, PlayerPos, agent, Speed);
-        Node runToOwnerSequence = new Sequence(new List<Node> { dogCalled, runToOwner });
+        Node fetchBall = new Sequence();
+        bool BallThrown() {
+            if (blackboard.TryGetValue(ballThrownKey, out bool ballThrown)) {
+                if (!ballThrown) {
+                    fetchBall.Reset();
+                    return false;
+                }
+            }
 
-        Node checkTargetInRange = new TargetInRangeCheck(transform, PlayerPos, DetectionRange);
-        Node moveToTarget = new MoveToTarget(transform, PlayerPos, agent, Speed);
-        Node chaseSequence = new Sequence(new List<Node> { checkTargetInRange, moveToTarget });
+            return true;
+        }
+        fetchBall.Add(new Condition(BallThrown));
+        fetchBall.Add(new FetchBall(this, playerPos, objectGrabPoint, agent, ball, blackboard, ballThrownKey,
+            dogCalledKey, 0.5f));
 
-        behaviourTree = new Selector(new List<Node> { runToOwnerSequence, chaseSequence });
+        Node explore = new Sequence();
+        explore.Add(new Explore(this, agent, bowls, speed, detectionRange));
+
+        Node playWithOtherDog = new Sequence();
+        playWithOtherDog.Add(new TargetInRangeCheck(transform, otherDogTransform, dogDetectionRange));
+        playWithOtherDog.Add(new PlayWithOtherDog(this, agent, otherDogAgent, invitedToPlayKey, fastSpeed));
+
+        behaviourTree.Add(playWithOtherDog);
+        behaviourTree.Add(fetchBall);
+        behaviourTree.Add(runToOwnerSequence);
+        behaviourTree.Add(explore);
     }
 
     void Update() {
@@ -64,17 +101,42 @@ public class Dog : MonoBehaviour
         DebugBlackboard();
     }
 
+    private void LateUpdate() {
+        if (currentState != nextState) {
+            switch (nextState) {
+                case AnimationStates.Idle:
+                    animator.SetTrigger("Idle");
+                    break;
+                case AnimationStates.Walk:
+                    animator.SetTrigger("Walk");
+                    break;
+                case AnimationStates.Run:
+                    animator.SetTrigger("Run");
+                    break;
+                case AnimationStates.PickUp:
+                    animator.SetTrigger("Pick_Up");
+                    break;
+                case AnimationStates.Drop:
+                    animator.SetTrigger("Drop");
+                    break;
+                case AnimationStates.Sniff:
+                    animator.SetTrigger("Sniff");
+                    break;
+            }
+        }
+
+        currentState = nextState;
+    }
+
     private void SetBlackboardKeys() {
         playerPosKey = blackboard.GetOrRegisterKey("PlayerPos");
         dogCalledKey = blackboard.GetOrRegisterKey("DogCalled");
-        ballInHandKey = blackboard.GetOrRegisterKey("BallInHand");
         ballThrownKey = blackboard.GetOrRegisterKey("BallThrown");
-        foodBowlPosKey = blackboard.GetOrRegisterKey("FoodBowlPos");
-        waterBowlPosKey = blackboard.GetOrRegisterKey("WaterBowlPos");
+        invitedToPlayKey = blackboard.GetOrRegisterKey("InvitedToPlay");
     }
 
     private void UpdateBlackboardValues() {
-        blackboard.SetValue(playerPosKey, PlayerPos.position);
+        blackboard.SetValue(playerPosKey, playerPos.position);
     }
 
     private void CallDog() {
@@ -90,4 +152,14 @@ public class Dog : MonoBehaviour
             blackboard.Debug();
         }
     }
+}
+
+public enum AnimationStates
+{
+    Idle,
+    Walk,
+    Run,
+    PickUp,
+    Drop,
+    Sniff
 }
