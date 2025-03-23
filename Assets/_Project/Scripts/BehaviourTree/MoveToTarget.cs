@@ -22,6 +22,9 @@ public class MoveToTarget : Node
 
     public override NodeState Run()
     {
+        agent.speed = speed;
+        agent.stoppingDistance = reachDistance;
+        
         if (Vector3.Distance(dog.transform.position, target.position) < reachDistance) {
             agent.ResetPath();
             // agent.isStopped = true;
@@ -36,8 +39,6 @@ public class MoveToTarget : Node
             return NodeState.Success;
         }
 
-        agent.speed = speed;
-        agent.stoppingDistance = reachDistance;
         agent.SetDestination(target.position);
         dog.transform.LookAt(target);
 

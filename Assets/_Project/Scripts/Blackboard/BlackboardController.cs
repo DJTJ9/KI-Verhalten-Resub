@@ -1,9 +1,8 @@
-using Sirenix.OdinInspector;
 using UnityEngine;
 
 namespace BlackboardSystem {
     public class BlackboardController : MonoBehaviour {
-        [InlineEditor, SerializeField] BlackboardData blackboardData;
+        [SerializeField] BlackboardData blackboardData;
         readonly Blackboard blackboard = new Blackboard();
 
         void Awake() {

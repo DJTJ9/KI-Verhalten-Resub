@@ -25,7 +25,6 @@ public class InvitedToPlay : Node
             if (invitedToPlay == false)
                 return NodeState.Failure;
         }
-        Debug.Log("InvitedToPlay");
         agent.stoppingDistance = stoppingDistance;
         agent.SetDestination(dog.transform.position);
         

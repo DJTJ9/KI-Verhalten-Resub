@@ -1,29 +1,32 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using BlackboardSystem;
+using UnityEngine.Serialization;
 
 public class PlayerController : MonoBehaviour {
     [Header("Movement")]
-    public RigidbodyMovement RigidbodyMovement;
-    public CameraRotator CameraRotator;
+    [SerializeField] private RigidbodyMovement rigidbodyMovement;
+    [SerializeField] private CameraRotator cameraRotator;
 
     [Header("Interact")]
-    public Transform MainCameraTransform;
-    public Transform ObjectGrabPoint;
+    [SerializeField] private Transform mainCameraTransform;
+    [SerializeField] private Transform objectGrabPoint;
     private GrabbableObject grabbableObject;
-    public LayerMask PickUpLayer;
 
     [Header("Input")]
-    public PlayerInput PlayerInput;
+    [SerializeField] private PlayerInput playerInput;
 
     [Header("Settings")]
-    public float LookSensitivity = 2;
+    [SerializeField] private float lookSensitivity = 0.15f;
     
     [Header("Blackboard")]
     [SerializeField] BlackboardData blackboardData;
-    Blackboard blackboard;
-    BlackboardKey BallInHandKey;
-    BlackboardKey BallThrownKey;
+    
+    private Blackboard blackboard;
+    private BlackboardKey ballInHandKey;
+    private BlackboardKey ballThrownKey;
+    private BlackboardKey dogCalledKey;
 
     private InputAction moveInputAction;
     private InputAction jumpInputAction;
@@ -31,20 +34,21 @@ public class PlayerController : MonoBehaviour {
     private InputAction grabInputAction;
     private InputAction dropInputAction;
     private InputAction throwInputAction;
+    private InputAction callDogInputAction;
+    private InputAction applicationQuitInputAction;
 
-    private GrabbableObject objectGrabbable;
     private PlayerInteraction playerInteraction;
     
     private const float pickUpDistance = 2f;
 
     private void Awake() {
         MapInputActions();
+        
         blackboard = BlackboardManager.SharedBlackboard;
         blackboardData.SetValuesOnBlackboard(blackboard);
-        BallInHandKey = blackboard.GetOrRegisterKey("BallInHand");
-        BallThrownKey = blackboard.GetOrRegisterKey("BallThrown");
-        // blackboardData.SetValuesOnBlackboard(blackboard);
-        // BallThrownKey = blackboard.GetOrRegisterKey("BallThrown");
+        ballInHandKey = blackboard.GetOrRegisterKey("BallInHand");
+        ballThrownKey = blackboard.GetOrRegisterKey("BallThrown");
+        dogCalledKey = blackboard.GetOrRegisterKey("DogCalled");
     }
 
     /// <summary>
@@ -58,11 +62,11 @@ public class PlayerController : MonoBehaviour {
 
 
         var moveDirection = GetMoveDirectionFromInput();
-        RigidbodyMovement.Move(moveDirection);
+        rigidbodyMovement.Move(moveDirection);
 
         if (Cursor.lockState == CursorLockMode.Locked) {
             var rotation = GetRotationFromInput();
-            RigidbodyMovement.RotateHorizontal(rotation.x * LookSensitivity);
+            rigidbodyMovement.RotateHorizontal(rotation.x * lookSensitivity);
         }
         
         if (Input.GetKeyDown(KeyCode.Q))
@@ -76,7 +80,7 @@ public class PlayerController : MonoBehaviour {
     /// </summary>
     private void LateUpdate() {
         if (Cursor.lockState == CursorLockMode.Locked) {
-            if (CameraRotator != null)
+            if (cameraRotator != null)
                 UpdateCamera();
         }
     }
@@ -87,7 +91,7 @@ public class PlayerController : MonoBehaviour {
     /// </summary>
     private void UpdateCamera() {
         var rotation = GetRotationFromInput();
-        CameraRotator.Rotate(rotation.y);
+        cameraRotator.Rotate(rotation.y);
     }
 
     /// <summary>
@@ -95,26 +99,32 @@ public class PlayerController : MonoBehaviour {
     /// Subcribes the OnJumpInput method to the jump started action
     /// </summary>
     private void MapInputActions() {
-        moveInputAction = PlayerInput.actions["Move"];
+        moveInputAction = playerInput.actions["Move"];
 
-        jumpInputAction = PlayerInput.actions["Jump"];
+        jumpInputAction = playerInput.actions["Jump"];
         jumpInputAction.started += OnJumpInput;
 
-        lookInputAction = PlayerInput.actions["Look"];
+        lookInputAction = playerInput.actions["Look"];
 
-        grabInputAction = PlayerInput.actions["Interact"];
+        grabInputAction = playerInput.actions["Interact"];
         grabInputAction.started += OnGrabInput;
 
-        dropInputAction = PlayerInput.actions["Drop"];
+        dropInputAction = playerInput.actions["Drop"];
         dropInputAction.started += OnDropInput;
         
-        throwInputAction = PlayerInput.actions["Throw"];
+        throwInputAction = playerInput.actions["Throw"];
         throwInputAction.started += OnThrowInput;
+        
+        callDogInputAction = playerInput.actions["Call_Dog"];
+        callDogInputAction.started += OnCallDogInput;
+        
+        applicationQuitInputAction = playerInput.actions["Quit"];
+        applicationQuitInputAction.started += context => OnApplicationQuit();
     }
 
     private void OnJumpInput(InputAction.CallbackContext _context) {
         if (_context.phase == InputActionPhase.Started)
-            RigidbodyMovement.Jump();
+            rigidbodyMovement.Jump();
     }
 
     /// <summary>
@@ -137,14 +147,13 @@ public class PlayerController : MonoBehaviour {
     private void OnGrabInput(InputAction.CallbackContext _context) {
         if (_context.phase == InputActionPhase.Started)
             if (grabbableObject == null) {
-                if (Physics.Raycast(MainCameraTransform.position, MainCameraTransform.forward, out RaycastHit raycastHit, pickUpDistance)) {
-                    if (raycastHit.transform.TryGetComponent(out GrabbableObject grabbableObject)) {
-                        grabbableObject.Grab(ObjectGrabPoint);
-                        this.grabbableObject = grabbableObject;
-                        blackboard.SetValue(BallInHandKey, true);
-                        blackboard.SetValue(BallThrownKey, false);
-                        blackboard.TryGetValue(BallInHandKey, out bool ballInHand);
-                        Debug.Log($"BallInHand: {ballInHand}");
+                if (Physics.Raycast(mainCameraTransform.position, mainCameraTransform.forward, out RaycastHit raycastHit, pickUpDistance)) {
+                    if (raycastHit.transform.TryGetComponent(out GrabbableObject grabbableObj)) {
+                        grabbableObj.Grab(objectGrabPoint);
+                        grabbableObject = grabbableObj;
+                        blackboard.SetValue(ballInHandKey, true);
+                        blackboard.SetValue(ballThrownKey, false);
+                        blackboard.TryGetValue(ballInHandKey, out bool ballInHand);
                     }
                 }
             }
@@ -153,22 +162,28 @@ public class PlayerController : MonoBehaviour {
     private void OnDropInput(InputAction.CallbackContext _context) {
         grabbableObject.Drop();
         grabbableObject = null;
-        blackboard.SetValue(BallInHandKey, false);
+        blackboard.SetValue(ballInHandKey, false);
     }
     
     private void OnThrowInput(InputAction.CallbackContext context) {
         if (context.phase == InputActionPhase.Started) {
-            if (blackboard.TryGetValue(BallInHandKey, out bool ballInHand) && ballInHand) {
-                grabbableObject.Throw(MainCameraTransform.forward);
+            if (blackboard.TryGetValue(ballInHandKey, out bool ballInHand) && ballInHand) {
+                grabbableObject.Throw(mainCameraTransform.forward);
                 grabbableObject = null;
-                blackboard.SetValue(BallInHandKey, false);
-                blackboard.SetValue(BallThrownKey, true);
-                blackboard.TryGetValue(BallThrownKey, out bool value);
-                Debug.Log($"BallThrown: {value}");
+                blackboard.SetValue(ballInHandKey, false);
+                blackboard.SetValue(ballThrownKey, true);
+                blackboard.TryGetValue(ballThrownKey, out bool value);
             }
-            // else {
-            //     blackboard.SetValue(BallThrownKey, false);
-            // }
         }
+    }
+    
+    private void OnCallDogInput(InputAction.CallbackContext context) {
+            if (blackboard.TryGetValue(dogCalledKey, out bool calledDog)) {
+                blackboard.SetValue(dogCalledKey, !calledDog);
+            }
+    }
+
+    private void OnApplicationQuit() {
+        Application.Quit();
     }
 }

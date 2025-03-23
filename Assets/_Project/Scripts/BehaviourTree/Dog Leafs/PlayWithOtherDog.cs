@@ -14,7 +14,7 @@ public class PlayWithOtherDog : Node
     private readonly float speed;
     private readonly int numberOfNewDestinations;
 
-    private int currentDestinationCount = 0;
+    private int currentDestinationCount;
 
     public PlayWithOtherDog(Dog dog, NavMeshAgent dogAgent, NavMeshAgent otherDogAgent,
         BlackboardKey invitedToPlayKey, float speed = 5f, float playRange = 20f, int numberOfNewDestinations = 7) {
@@ -28,28 +28,20 @@ public class PlayWithOtherDog : Node
     }
 
     public override NodeState Run() {
-        Debug.Log("PlayWithOtherDog");
-
         dogAgent.speed = speed;
         otherDogAgent.speed = speed;
 
-        if (blackboard.TryGetValue(invitedToPlayKey, out bool invitedToPlay)) {
-            blackboard.SetValue(invitedToPlayKey, true);
-        }
+        blackboard.SetValue(invitedToPlayKey, true);
 
         if (currentDestinationCount >= numberOfNewDestinations) {
-            if (blackboard.TryGetValue(invitedToPlayKey, out invitedToPlay)) {
-                blackboard.SetValue(invitedToPlayKey, false);
-                Reset();
-            }
+            blackboard.SetValue(invitedToPlayKey, false);
+            Reset();
 
-            Debug.Log($"InvitedToPlay: {invitedToPlay}");
             return NodeState.Success;
         }
 
         if (!dogAgent.pathPending && HasReachedDestination(dogAgent)) {
             SetRandomDestination();
-            Debug.Log($"CurrentDestinationCount: {currentDestinationCount}");
         }
 
         dog.nextState = AnimationStates.Run;

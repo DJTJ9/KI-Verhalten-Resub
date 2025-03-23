@@ -5,12 +5,11 @@ using UnityEngine.AI;
 
 public class Dog : MonoBehaviour
 {
-    [Header("Dog Settings")] [SerializeField]
-    float detectionRange = 5f;
-
+    [Header("Dog Settings")] 
+    [SerializeField] private float detectionRange = 5f;
     [SerializeField] private float speed = 2f;
     [SerializeField] private float fastSpeed = 5f;
-    [SerializeField] private float dogDetectionRange = 7f;
+    [SerializeField] private float dogDetectionRange = 10f;
 
     [Header("Transforms")] 
     [SerializeField] private Transform playerPos;
@@ -88,8 +87,8 @@ public class Dog : MonoBehaviour
         playWithOtherDog.Add(new TargetInRangeCheck(transform, otherDogTransform, dogDetectionRange));
         playWithOtherDog.Add(new PlayWithOtherDog(this, agent, otherDogAgent, invitedToPlayKey, fastSpeed));
 
-        behaviourTree.Add(playWithOtherDog);
         behaviourTree.Add(fetchBall);
+        behaviourTree.Add(playWithOtherDog);
         behaviourTree.Add(runToOwnerSequence);
         behaviourTree.Add(explore);
     }
@@ -98,7 +97,6 @@ public class Dog : MonoBehaviour
         UpdateBlackboardValues();
         behaviourTree.Run();
 
-        CallDog();
         DebugBlackboard();
     }
 
@@ -142,14 +140,6 @@ public class Dog : MonoBehaviour
 
     private void UpdateBlackboardValues() {
         blackboard.SetValue(playerPosKey, playerPos.position);
-    }
-
-    private void CallDog() {
-        if (Input.GetKeyDown(KeyCode.Space)) {
-            if (blackboard.TryGetValue(dogCalledKey, out bool calledDog)) {
-                blackboard.SetValue(dogCalledKey, !calledDog);
-            }
-        }
     }
 
     private void DebugBlackboard() {

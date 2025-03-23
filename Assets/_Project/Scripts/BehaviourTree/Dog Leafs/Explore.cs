@@ -23,7 +23,7 @@ public class Explore : Node
     private AnimationStates animationState = AnimationStates.Walk;
 
     public Explore(Dog dog, NavMeshAgent agent, List<Transform> bowls, float speed = 2f, float exploreRadius = 5f,
-        float          sniffDuration = 4.7f, float intervalBetweenSniffing = 10f, float exploreRadiusMultiplier = 2f) {
+        float sniffDuration = 4.7f, float intervalBetweenSniffing = 10f, float exploreRadiusMultiplier = 2f) {
         this.dog = dog;
         this.agent = agent;
         this.bowls = bowls;
@@ -83,7 +83,6 @@ public class Explore : Node
     }
 
     private void StartPause() {
-        Debug.Log("Starting pause.");
         isPausing = true;
         pauseEndTime = Time.time + sniffDuration;
         agent.speed = 0f;
@@ -104,7 +103,6 @@ public class Explore : Node
     }
 
     private void EndPause() {
-        Debug.Log("Ending pause.");
         isPausing = false;
         agent.speed = speed;
         exploreRadius = initialExploreRadius;

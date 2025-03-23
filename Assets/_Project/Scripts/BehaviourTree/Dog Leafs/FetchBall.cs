@@ -28,9 +28,9 @@ public class FetchBall : Node
 
     private State currentState;
 
-    public FetchBall(Dog dog,          Transform  playerTransform, Transform objectGrabPoint,
-        NavMeshAgent     dogAgent,     GameObject ball, Blackboard blackboard, BlackboardKey ballThrownKey,
-        BlackboardKey    calledDogKey, float      pickupRange = 0.1f, float dropRange = 1f) {
+    public FetchBall(Dog dog, Transform playerTransform, Transform objectGrabPoint,
+        NavMeshAgent dogAgent, GameObject ball, Blackboard blackboard, BlackboardKey ballThrownKey,
+        BlackboardKey calledDogKey, float pickupRange = 0.1f, float dropRange = 1f) {
         this.dog = dog;
         this.playerTransform = playerTransform;
         this.objectGrabPoint = objectGrabPoint;
@@ -68,6 +68,27 @@ public class FetchBall : Node
         }
     }
 
+    private NodeState WaitForBallThrow() {
+        if (blackboard.TryGetValue(calledDogKey, out bool calledDog) && !calledDog) {
+            return NodeState.Failure;
+        }
+
+        dogAgent.stoppingDistance = 3f;
+        if (Vector3.Distance(dog.transform.position, playerTransform.position) > dogAgent.stoppingDistance) {
+            currentState = State.CloseUpToPlayer;
+        }
+
+        if (blackboard.TryGetValue(ballThrownKey, out bool ballThrown) && ballThrown) {
+            currentState = State.MovingToBall;
+            blackboard.SetValue(ballThrownKey, false);
+            dog.nextState = AnimationStates.Run;
+            return NodeState.Running;
+        }
+
+        dog.nextState = AnimationStates.Idle;
+        return NodeState.Running;
+    }
+    
     private NodeState CloseUpToPlayer() {
         dogAgent.SetDestination(playerTransform.position);
         dog.nextState = AnimationStates.Walk;
@@ -78,34 +99,9 @@ public class FetchBall : Node
         if (blackboard.TryGetValue(ballThrownKey, out bool ballThrown) && ballThrown) {
             currentState = State.MovingToBall;
             blackboard.SetValue(ballThrownKey, false);
-            Debug.Log("Ball wurde geworfen! Hund startet mit der Suche...");
             dog.nextState = AnimationStates.Run;
         }
 
-        return NodeState.Running;
-    }
-
-    private NodeState WaitForBallThrow() {
-        if (blackboard.TryGetValue(calledDogKey, out bool calledDog) && !calledDog) {
-            Debug.Log("CalledDog ist auf false gesetzt. Hund verlässt die Sequenz.");
-            return NodeState.Failure;
-        }
-
-        Debug.Log("Hund wartet auf den nächsten Ballwurf...");
-        dogAgent.stoppingDistance = 3f;
-        if (Vector3.Distance(dog.transform.position, playerTransform.position) > dogAgent.stoppingDistance) {
-            currentState = State.CloseUpToPlayer;
-        }
-
-        if (blackboard.TryGetValue(ballThrownKey, out bool ballThrown) && ballThrown) {
-            currentState = State.MovingToBall;
-            blackboard.SetValue(ballThrownKey, false);
-            Debug.Log("Ball wurde geworfen! Hund startet mit der Suche...");
-            dog.nextState = AnimationStates.Run;
-            return NodeState.Running;
-        }
-
-        dog.nextState = AnimationStates.Idle;
         return NodeState.Running;
     }
 
@@ -114,7 +110,6 @@ public class FetchBall : Node
         dogAgent.stoppingDistance = pickupRange - 0.1f;
 
         if (Vector3.Distance(dog.transform.position, ball.transform.position) <= pickupRange) {
-            Debug.Log("Hund ist nun am Ball.");
             currentState = State.PickingUpBall;
         }
 
@@ -123,7 +118,6 @@ public class FetchBall : Node
     }
 
     private NodeState PickUpBall() {
-        Debug.Log("Hund hebt den Ball auf.");
         dog.nextState = AnimationStates.PickUp;
 
         if (ball.TryGetComponent(out GrabbableObject grabbableObject)) {
@@ -148,7 +142,6 @@ public class FetchBall : Node
     }
 
     private NodeState DropBall() {
-        Debug.Log("Hund lässt den Ball fallen.");
         dog.nextState = AnimationStates.Drop;
         if (ball.TryGetComponent(out GrabbableObject grabbableObject)) {
             grabbableObject.Drop();
