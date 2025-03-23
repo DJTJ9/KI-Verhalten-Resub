@@ -84,6 +84,7 @@ public class Dog : MonoBehaviour
         explore.Add(new Explore(this, agent, bowls, speed, detectionRange));
 
         Node playWithOtherDog = new Sequence();
+        playWithOtherDog.Add(new CooldownCondition(20f));
         playWithOtherDog.Add(new TargetInRangeCheck(transform, otherDogTransform, dogDetectionRange));
         playWithOtherDog.Add(new PlayWithOtherDog(this, agent, otherDogAgent, invitedToPlayKey, fastSpeed));
 
@@ -121,6 +122,10 @@ public class Dog : MonoBehaviour
                     break;
                 case AnimationStates.Sniff:
                     animator.SetTrigger("Sniff");
+                    break;
+                
+                case AnimationStates.Trot:
+                    animator.SetTrigger("Trot");
                     break;
             }
         }
@@ -161,5 +166,6 @@ public enum AnimationStates
     Run,
     PickUp,
     Drop,
-    Sniff
+    Sniff,
+    Trot
 }

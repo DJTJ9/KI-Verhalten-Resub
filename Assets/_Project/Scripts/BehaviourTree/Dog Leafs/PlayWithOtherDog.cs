@@ -4,10 +4,6 @@ using UnityEngine.AI;
 
 public class PlayWithOtherDog : Node
 {
-    private static float cooldownTimer;
-
-    private const float cooldownDuration = 15f;
-
     private readonly Dog dog;
     private readonly NavMeshAgent dogAgent;
     private readonly NavMeshAgent otherDogAgent;
@@ -21,7 +17,7 @@ public class PlayWithOtherDog : Node
     private int currentDestinationCount = 0;
 
     public PlayWithOtherDog(Dog dog, NavMeshAgent dogAgent, NavMeshAgent otherDogAgent,
-        BlackboardKey invitedToPlayKey, float speed = 5f, float playRange = 15f, int numberOfNewDestinations = 5) {
+        BlackboardKey invitedToPlayKey, float speed = 5f, float playRange = 20f, int numberOfNewDestinations = 7) {
         this.dog = dog;
         this.dogAgent = dogAgent;
         this.otherDogAgent = otherDogAgent;
@@ -33,10 +29,6 @@ public class PlayWithOtherDog : Node
 
     public override NodeState Run() {
         Debug.Log("PlayWithOtherDog");
-        cooldownTimer -= Time.deltaTime;
-        if (cooldownTimer > 0) {
-            return NodeState.Failure;
-        }
 
         dogAgent.speed = speed;
         otherDogAgent.speed = speed;
@@ -48,10 +40,10 @@ public class PlayWithOtherDog : Node
         if (currentDestinationCount >= numberOfNewDestinations) {
             if (blackboard.TryGetValue(invitedToPlayKey, out invitedToPlay)) {
                 blackboard.SetValue(invitedToPlayKey, false);
+                Reset();
             }
 
             Debug.Log($"InvitedToPlay: {invitedToPlay}");
-            StartCooldown();
             return NodeState.Success;
         }
 
@@ -85,14 +77,10 @@ public class PlayWithOtherDog : Node
                (!agent.hasPath || agent.velocity.sqrMagnitude < 0.1f);
     }
 
-    private static void StartCooldown() {
-        cooldownTimer = cooldownDuration;
-    }
 
     public override void Reset() {
         dogAgent.ResetPath();
         otherDogAgent.ResetPath();
         currentDestinationCount = 0;
-        cooldownTimer = 0f;
     }
 }

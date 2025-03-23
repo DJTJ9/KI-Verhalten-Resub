@@ -143,7 +143,7 @@ public class FetchBall : Node
             currentState = State.DroppingBall;
         }
 
-        dog.nextState = AnimationStates.Walk;
+        dog.nextState = AnimationStates.Trot;
         return NodeState.Running;
     }
 
